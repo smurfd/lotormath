@@ -1,13 +1,12 @@
-CL := gcc -O3 -Wall -pedantic -std=c99
-CC := gcc -O3 -Wall -pedantic -std=c99
+CC := gcc -O3 -ffast-math -Wall -pedantic -std=c99
 BUILD:=.build
 
-all: mkbuilddir lightbig
+all: mkbuilddir lotormath
 
 mkbuilddir:
 	mkdir -p ${BUILD}
 
-lightbig:
-	${CC} -c lightbig.c -o ${BUILD}/lightbig.o
-	${CL} -o ${BUILD}/test test_lightbig.c ${BUILD}/lightbig.o
+lotormath:
+	${CC} -c lotormath.c -o ${BUILD}/lotormath.o
+	${CC} -o ${BUILD}/test test_lotormath.c ${BUILD}/lotormath.o -lm
 	${BUILD}/test
