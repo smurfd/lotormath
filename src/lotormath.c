@@ -72,7 +72,7 @@ bint bcreate(void) {
 
 // ----- Helper convert functions -----
 bint *str2bint(bint *x, const char *str) {
-  memset(x->wrd, 0, LEN * sizeof(uint32_t));
+  memset(x->wrd, 0, BLEN * sizeof(uint32_t));
   for (int i = 0; i < 64; i++) { // str + 2 to skip 0x from hexstr
     uint32_t val = (uint32_t)((str + 2)[i] < 'a' ? (str + 2)[i] - '0' : (str + 2)[i] - 'a' + 10);
     x->wrd[7 - (i >> 3)] |= val << (4 * ((7 - i) & 0x7));
@@ -85,7 +85,7 @@ bint *str2bint(bint *x, const char *str) {
 }
 
 bint *wrd2bint(bint *x, const uint32_t w) {
-  memset(x->wrd, 0, LEN * sizeof(uint32_t));
+  memset(x->wrd, 0, BLEN * sizeof(uint32_t));
   breserve(x, 1);
   x->wrd[0] = w;
   x->siz = 1; // always set size to 1, even if we set it to zero value
@@ -251,8 +251,8 @@ static inline uint32_t uint32_mul_hi(const uint32_t a, const uint32_t b) {
 static inline int16_t uint32_mul_add(uint32_t *ret, const uint32_t *a, const uint32_t *b, int16_t an, int16_t bn) {
   if (an == 0 || bn == 0) return 0;
   for (int16_t j = 0; j < bn; j++) {
-    uint32_t carry = 0, n = an, f = b[j], r[LEN] = {0};
-    memcpy(r, ret + j, LEN * sizeof(uint32_t));
+    uint32_t carry = 0, n = an, f = b[j], r[BLEN] = {0};
+    memcpy(r, ret + j, BLEN * sizeof(uint32_t));
     for (int16_t i = 0; i < n; i++){
       uint32_t src_word = a[i];
       uint32_t dst_word = uint32_mul_lo(src_word, f);
@@ -266,14 +266,14 @@ static inline int16_t uint32_mul_add(uint32_t *ret, const uint32_t *a, const uin
       r[i] = r[i] + carry; // add and get carry
       carry = r[i] < carry;
     }
-    memcpy(ret + j, r, LEN * sizeof(uint32_t));
+    memcpy(ret + j, r, BLEN * sizeof(uint32_t));
   }
   return uint32_tru(ret, an + bn);
 }
 
 // https://en.wikipedia.org/wiki/Karatsuba_algorithm
 static inline int16_t uint32_mul_karatsuba(uint32_t *ret, const uint32_t *a, const uint32_t *b, int16_t an, int16_t bn, uint32_t *tmp) {
-  if (an < LEN && bn < LEN) return uint32_mul_add(ret, a, b, an, bn);
+  if (an < BLEN && bn < BLEN) return uint32_mul_add(ret, a, b, an, bn);
   int16_t m = an > bn? an : bn, m2 = m / 2, m3 = m2 + 2, nlo1hi1, nlo2hi2, nz0, nz1, nz2;
   uint32_t *lo1 = (uint32_t*)a, *lo2 = (uint32_t*)b, *hi1 = (uint32_t*)a + m2, *hi2 = (uint32_t*)b + m2, *lo1hi1, *lo2hi2, *z0, *z1, *z2;
   int16_t nlo1 = uint32_tru(lo1, m2 < an? m2 : an), nlo2 = uint32_tru(lo2, m2 < bn? m2 : bn);
@@ -294,12 +294,12 @@ static inline int16_t uint32_mul_karatsuba(uint32_t *ret, const uint32_t *a, con
 
 bint *bmul(bint *ret, const bint *a, const bint *b) {
   int16_t an = a->siz, bn = b->siz, n = an+bn;
-  memset(ret->wrd, 0, LEN * sizeof(uint32_t));
-  if (ret->wrd != a->wrd && ret->wrd != b->wrd && an < LEN && bn < LEN) {
+  memset(ret->wrd, 0, BLEN * sizeof(uint32_t));
+  if (ret->wrd != a->wrd && ret->wrd != b->wrd && an < BLEN && bn < BLEN) {
     breserve(ret, n);
     ret->siz = uint32_mul_add(ret->wrd, a->wrd, b->wrd, an, bn);
   } else {
-    uint32_t tmp[LEN] = {0};
+    uint32_t tmp[BLEN] = {0};
     breserve(ret, n);
     ret->siz = uint32_mul_karatsuba(ret->wrd, a->wrd, b->wrd, an, bn, tmp+n);
   }
@@ -355,7 +355,7 @@ static inline bint *bdivmod(bint *ret, bint *rem, const bint *a, const bint *d) 
 }
 
 bint *bdiv(bint *ret, bint *tmp, const bint *a, const bint *d) {
-  memset(ret->wrd, 0, LEN * sizeof(uint32_t));
+  memset(ret->wrd, 0, BLEN * sizeof(uint32_t));
   bdivmod(ret, tmp, a, d);
   return tmp;
 }
