@@ -5,7 +5,6 @@
 #include <assert.h>
 #include "lotormath.h"
 
-// TODO: fix size in returns, it gets 0 here and there. After than enable first 'if' in cmp()
 // ----- Print function -----
 void bprint(char *s, bint *a) {
   printf("%s: %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x: %d : neg? %d\n",
@@ -15,11 +14,11 @@ void bprint(char *s, bint *a) {
 
 // ----- Helper functions -----
 static inline uint32_t uint32_lo(uint32_t a) {
-  return ((a) & ((uint32_t) - 1) >> 32 / 2);
+  return ((a) & ((uint32_t) - 1) >> 16);
 }
 
 static inline uint32_t uint32_hi(uint32_t a) {
-  return ((a) >> sizeof(uint32_t) * 8 / 2);
+  return ((a) >> sizeof(uint32_t) * 4);
 }
 
 static inline int16_t uint32_tru(const uint32_t *a, int16_t an) {
@@ -39,14 +38,14 @@ static inline int16_t uint32_abs(const uint32_t *a, const uint32_t *b, int16_t a
 
 int16_t cmp(const bint *a, const bint *b) {
   if (a->siz != 0 && a->siz != b->siz) return 1;
-  int16_t len = a->siz > b->siz ? a->siz : b->siz;
+  int8_t len = a->siz > b->siz ? a->siz : b->siz;
   if (len == 0 || len == 1) {
     if (a->wrd[0] > b->wrd[0]) return 1;
     if (a->wrd[0] < b->wrd[0]) return -1;
     if (a->wrd[0] == b->wrd[0]) return 0;
   }
   if (a->siz <= 0) return -1;
-  for (int16_t i = len - 1; i >= 0; i--) {
+  for (int8_t i = len - 1; i >= 0; i--) {
     if (a->wrd[i] > b->wrd[i]) return 1;
     if (a->wrd[i] < b->wrd[i]) return -1;
   }
@@ -73,9 +72,11 @@ bint bcreate(void) {
 // ----- Helper convert functions -----
 bint *str2bint(bint *x, const char *str) {
   memset(x->wrd, 0, BLEN * sizeof(uint32_t));
-  for (int i = 0; i < 64; i++) { // str + 2 to skip 0x from hexstr
-    uint32_t val = (uint32_t)((str + 2)[i] < 'a' ? (str + 2)[i] - '0' : (str + 2)[i] - 'a' + 10);
-    x->wrd[7 - (i >> 3)] |= val << (4 * ((7 - i) & 0x7));
+  for (int8_t i = 0; i < 64; i+=2) { // str + 2 to skip 0x from hexstr
+    uint32_t val1 = (uint32_t)((str + 2)[i+0] < 'a' ? (str + 2)[i+0] - '0' : (str + 2)[i+0] - 'a' + 10);
+    uint32_t val2 = (uint32_t)((str + 2)[i+1] < 'a' ? (str + 2)[i+1] - '0' : (str + 2)[i+1] - 'a' + 10);
+    x->wrd[7 - ((i+0) >> 3)] |= val1 << (4 * ((7 - (i+0)) & 0x7));
+    x->wrd[7 - ((i+1) >> 3)] |= val2 << (4 * ((7 - (i+1)) & 0x7));
   }
   x->siz = (strlen(str) - 2) / 8;
   x->neg = 0;
@@ -98,36 +99,40 @@ bint *wrd2bint(bint *x, const uint32_t w) {
 // ----- Math Add & Sub functions -----
 static inline int16_t uint32_add(uint32_t *ret, const uint32_t *a, const uint32_t *b, int16_t an, int16_t bn) {
   uint32_t carry = 0, n = an < bn ? an : bn, sum, sum2;
-  for (int16_t i = 0; i < n; i++) {
+  for (uint8_t i = 0; i < n; i++) {
     sum = (carry + a[i]); // add and get carry(*r, a, b) : a += b; *r = a; return a < b
     carry = (sum < a[i]);
     sum2 = (sum + b[i]);
     carry += (sum2 < b[i]);
     ret[i] = sum2;
   }
-  for (int16_t i = n; i < an; i++) {
-    ret[i] = (a[i] + carry); // add and get carry
-    carry = (ret[i] < carry);
+  if (n < an) {
+    for (uint8_t i = n; i < an; i++) {
+      ret[i] = (a[i] + carry); // add and get carry
+      carry = (ret[i] < carry);
+    }
   }
-  for (int16_t i = an; i < bn; i++) {
-    ret[i] = (b[i] + carry); // add and get carry
-    carry = (ret[i] < carry);
+  if (an < bn) {
+    for (uint8_t i = an; i < bn; i++) {
+      ret[i] = (b[i] + carry); // add and get carry
+      carry = (ret[i] < carry);
+    }
   }
-  int16_t co = bn > an ? bn : an; // biggest of bn and an
+  uint8_t co = bn > an ? bn : an; // biggest of bn and an
   if (carry) ret[co++] = carry;
   return uint32_tru(ret, co);
 }
 
 static inline int16_t uint32_sub(uint32_t *ret, const uint32_t *a, const uint32_t *b, int16_t an, int16_t bn) {
   uint32_t carry = 0, dif = 0, dif2;
-  for (int16_t i = 0; i < bn; i++) {
+  for (uint8_t i = 0; i < bn; i++) {
     dif = a[i] - carry; // sub and get carry(*r, a, b) : b = a - b; *r = b; return b > a
     carry = dif > a[i];
     dif2 = dif - b[i]; // sub and get carry
     carry += (dif2 > dif);
     ret[i] = dif2;
   }
-  for (int16_t i = bn; i < an; i++) {
+  for (uint8_t i = bn; i < an; i++) {
     ret[i] = a[i] - carry; // sub and get carry
     carry = ret[i] > a[i];
   }
@@ -170,20 +175,18 @@ bint *blshift(bint *ret, const bint *a, const uint32_t b) {
   int16_t ws = b / 32, bs = b % 32;
   if (bs) {
     uint32_t lo, hi = 0;
-    for (int i = a->siz + ws; i > ws; i--) {
+    for (int8_t i = a->siz + ws; i > ws; i--) {
       lo = a->wrd[i - ws - 1];
       ret->wrd[i] = (hi << bs) | (lo >> (32 - bs));
       hi = lo;
     }
-    for (int i = ws; i >= 0; i--) {
-      ret->wrd[i] = hi << bs;
-      hi = 0;
-    }
+    memset(ret->wrd, 0, (ws) * sizeof(uint32_t));
+    ret->wrd[ws] = hi << bs;
     ret->neg = ret->neg ^ a->neg;
     ret->siz = uint32_tru(ret->wrd, a->siz + ws + 1);
   } else {
-    for (int i = a->siz + ws - 1; i >= ws; i--) ret->wrd[i] = a->wrd[i - ws];
-    for (int i = ws - 1; i >= 0; i--) ret->wrd[i] = 0;
+    memcpy(ret->wrd + ws, a->wrd, a->siz * sizeof(uint32_t));
+    memset(ret->wrd, 0, sizeof(uint32_t) * (ws));
     ret->neg = ret->neg ^ a->neg;
     ret->siz = uint32_tru(ret->wrd, a->siz + ws);
   }
@@ -203,7 +206,7 @@ bint *brshift(bint *ret, const bint *a, const uint32_t b) {
     ret->neg = ret->neg ^ a->neg;
     ret->siz = uint32_tru(ret->wrd, i);
   } else {
-    for (i = 0; i < a->siz - ws; i++) ret->wrd[i] = a->wrd[i + ws];
+    memcpy(ret->wrd, a->wrd + ws, (a->siz - ws) * sizeof(uint32_t));
     ret->neg = ret->neg ^ a->neg;
     ret->siz = uint32_tru(ret->wrd, i);
   }
@@ -240,29 +243,26 @@ static inline uint32_t uint32_mul_lo(const uint32_t a, const uint32_t b) {
 }
 
 static inline uint32_t uint32_mul_hi(const uint32_t a, const uint32_t b) {
-  uint32_t r0 = uint32_lo(a) * uint32_lo(b);
-  uint32_t r1 = uint32_lo(a) * uint32_hi(b);
-  uint32_t r2 = uint32_hi(a) * uint32_lo(b);
-  uint32_t r3 = uint32_hi(a) * uint32_hi(b);
+  uint32_t la = uint32_lo(a), lb = uint32_lo(b), ha = uint32_hi(a), hb = uint32_hi(b);
+  uint32_t r0 = la * lb, r1 = la * hb, r2 = ha * lb, r3 = ha * hb;
   uint32_t r4 = uint32_hi(r0) + uint32_lo(r1) + uint32_lo(r2);
   return uint32_hi(r4) + uint32_hi(r1) + uint32_hi(r2) + r3;
 }
 
 static inline int16_t uint32_mul_add(uint32_t *ret, const uint32_t *a, const uint32_t *b, int16_t an, int16_t bn) {
   if (an == 0 || bn == 0) return 0;
-  for (int16_t j = 0; j < bn; j++) {
+  for (int8_t j = 0; j < bn; j++) {
     uint32_t carry = 0, n = an, f = b[j], r[BLEN] = {0};
     memcpy(r, ret + j, BLEN * sizeof(uint32_t));
-    for (int16_t i = 0; i < n; i++){
-      uint32_t src_word = a[i];
-      uint32_t dst_word = uint32_mul_lo(src_word, f);
+    for (int8_t i = 0; i < n; i++) {
+      uint32_t src_word = a[i], dst_word = uint32_mul_lo(src_word, f);
       dst_word = dst_word + carry; // add and get carry
       carry = (dst_word < carry);
       carry += uint32_mul_hi(src_word, f);
       r[i] = r[i] + dst_word; // add and get carry
       carry += (r[i] < dst_word);
     }
-    for (int16_t i = n; carry; i++){
+    for (int8_t i = n; carry; i++){
       r[i] = r[i] + carry; // add and get carry
       carry = r[i] < carry;
     }
@@ -311,46 +311,35 @@ bint *bmul(bint *ret, const bint *a, const bint *b) {
 
 // ----- Div functions ----
 static inline bint *bdivmod(bint *ret, bint *rem, const bint *a, const bint *d) {
-  bint *quot = ret, *rema = rem, den = bcreate();
-  rema->siz = rem->siz;
-  quot->siz = ret->siz;
-  rema->neg = rem->neg;
-  quot->neg = ret->neg;
   if (d->siz == 0) {
     printf("Division by zero, not good\n"); return NULL; // this should never happen
   } else if (a->siz == 1 && d->siz == 1) {
     uint32_t aw = a->wrd[0], bw = d->wrd[0];
-    wrd2bint(quot, aw / bw);
-    wrd2bint(rema, aw % bw);
+    wrd2bint(ret, aw / bw);
+    wrd2bint(rem, aw % bw);
     ret->neg = a->neg;
     rem->neg = a->neg ^ d->neg;
-    BCPY(*(bint*)rem, *(bint*)rema);
-    BCPY(*(bint*)ret, *(bint*)quot);
     return ret;
   }
-  BCPY(*(bint*)rema, *(bint*)a);
-  rema->siz = a->siz;
-  rema->neg = 0;
-  wrd2bint(&den, 0);
-  if (uint32_abs(rema->wrd, d->wrd, rema->siz, d->siz) >= 0) {
+  BCPY(*(bint*)rem, *(bint*)a);
+  rem->siz = a->siz;
+  rem->neg = 0;
+  if (uint32_abs(rem->wrd, d->wrd, rem->siz, d->siz) >= 0) {
+    bint den = bcreate();
     BCPY(den, *(bint*)d);
-    int32_t sh = bbitlen(rema) - bbitlen(&den);
+    int32_t sh = bbitlen(rem) - bbitlen(&den);
     blshift(&den, &den, sh);
     den.neg = 0;
     for (int32_t s = sh; s >= 0; s--) {
-      if (uint32_abs(rema->wrd, den.wrd, rema->siz, den.siz) >= 0) {
-        bsub(rema, rema, &den);
-        bsetbit(quot, s);
+      if (uint32_abs(rem->wrd, den.wrd, rem->siz, den.siz) >= 0) {
+        bsub(rem, rem, &den);
+        bsetbit(ret, s);
       }
       brshift(&den, &den, 1);
     }
   }
-  BCPY(*(bint*)rem, *(bint*)rema);
-  BCPY(*(bint*)ret, *(bint*)quot);
   rem->neg = a->neg;
   ret->neg = a->neg ^ d->neg;
-  rem->siz = rema->siz;
-  ret->siz = quot->siz;
   return ret;
 }
 
@@ -361,11 +350,10 @@ bint *bdiv(bint *ret, bint *tmp, const bint *a, const bint *d) {
 }
 
 bint *bmod(bint *ret, bint *tmp, const bint *a, const bint *m) {
-  bint t1 = bcreate(), t2 = bcreate(), t3 = bcreate(), ret1 = bcreate();
+  bint t1 = bcreate(), t3 = bcreate(), ret1 = bcreate();
   bdivmod(tmp, &ret1, a, m);
   badd(&t3, &ret1, m);
-  bdivmod(&t1, &t2, &t3, m);
-  BCPY(*(bint*)ret, t2);
+  bdivmod(&t1, ret, &t3, m);
   return ret;
 }
 
