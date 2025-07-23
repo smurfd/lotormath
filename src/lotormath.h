@@ -4,6 +4,7 @@
 #define BCPY(a, b) a = b
 #define BSWP(a, b) {bint tmp = a; a = b; b = tmp;}
 #define BLEN 81
+#define BZ BLEN * sizeof(uint32_t)
 typedef struct bint {
   uint32_t wrd[BLEN];
   int16_t neg, siz, cap;

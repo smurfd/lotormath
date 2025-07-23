@@ -29,7 +29,7 @@ static inline int16_t uint32_tru(const uint32_t *a, int16_t an) {
 static inline int16_t uint32_abs(const uint32_t *a, const uint32_t *b, int16_t an, int16_t bn) {
   if (an > bn) return +1;
   if (an < bn) return -1;
-  for (int16_t i = an - 1; i >= 0; i--) {
+  for (int8_t i = an - 1; i >= 0; i--) {
     if (a[i] < b[i]) return -1;
     if (a[i] > b[i]) return +1;
   }
@@ -59,7 +59,7 @@ bint *breserve(bint *a, int cap) {
 }
 
 static inline int16_t count_zeros(bint *a) {
-  int16_t co = a->siz - 1;
+  int8_t co = a->siz - 1;
   while(a->wrd[co] == 0 && co > 0) co--;
   return a->siz - co - 1;
 }
@@ -70,15 +70,30 @@ bint bcreate(void) {
 
 
 // ----- Helper convert functions -----
+static inline uint8_t chr2uint(char *str, int8_t k) {
+  return (str[k] < 'a' ? str[k] - '0' : str[k] - 'a' + 10);
+}
+
+static inline uint16_t bit(int8_t k) {
+  return 7 - (k >> 3);
+}
+
+static inline uint32_t bitmod(uint16_t a, int8_t k) {
+  return a << (4 * ((7 - k) & 0x7));
+}
+
 bint *str2bint(bint *x, const char *str) {
-  memset(x->wrd, 0, BLEN * sizeof(uint32_t));
-  for (int8_t i = 0; i < 64; i+=2) { // str + 2 to skip 0x from hexstr
-    uint32_t val1 = (uint32_t)((str + 2)[i+0] < 'a' ? (str + 2)[i+0] - '0' : (str + 2)[i+0] - 'a' + 10);
-    uint32_t val2 = (uint32_t)((str + 2)[i+1] < 'a' ? (str + 2)[i+1] - '0' : (str + 2)[i+1] - 'a' + 10);
-    x->wrd[7 - ((i+0) >> 3)] |= val1 << (4 * ((7 - (i+0)) & 0x7));
-    x->wrd[7 - ((i+1) >> 3)] |= val2 << (4 * ((7 - (i+1)) & 0x7));
+  memset(x->wrd, 0, BZ);
+  char *s = (char*)str + 2; // skip 0x from hex string, ie +2
+  for (int8_t i = 0; i < 64; i += 4) {
+    int8_t i0 = i + 0, i1 = i + 1, i2 = i + 2, i3 = i + 3;
+    uint16_t val0 = chr2uint(s, i0), val1 = chr2uint(s, i1), val2 = chr2uint(s, i2), val3 = chr2uint(s, i3);
+    x->wrd[bit(i0)] |= bitmod(val0, i0);
+    x->wrd[bit(i1)] |= bitmod(val1, i1);
+    x->wrd[bit(i2)] |= bitmod(val2, i2);
+    x->wrd[bit(i3)] |= bitmod(val3, i3);
   }
-  x->siz = (strlen(str) - 2) / 8;
+  x->siz = strlen(s) / 8;
   x->neg = 0;
   x->cap = x->siz;
   x->siz -= count_zeros(x);
@@ -86,7 +101,7 @@ bint *str2bint(bint *x, const char *str) {
 }
 
 bint *wrd2bint(bint *x, const uint32_t w) {
-  memset(x->wrd, 0, BLEN * sizeof(uint32_t));
+  memset(x->wrd, 0, BZ);
   breserve(x, 1);
   x->wrd[0] = w;
   x->siz = 1; // always set size to 1, even if we set it to zero value
@@ -172,7 +187,7 @@ bint *bsub(bint *ret, const bint *a, const bint *b) {
 
 // ----- Math Shift functions -----
 bint *blshift(bint *ret, const bint *a, const uint32_t b) {
-  int16_t ws = b / 32, bs = b % 32;
+  int8_t ws = b / 32, bs = b % 32;
   if (bs) {
     uint32_t lo, hi = 0;
     for (int8_t i = a->siz + ws; i > ws; i--) {
@@ -194,7 +209,7 @@ bint *blshift(bint *ret, const bint *a, const uint32_t b) {
 }
 
 bint *brshift(bint *ret, const bint *a, const uint32_t b) {
-  int16_t ws = b / 32, bs = b % 32, i = 0;
+  int8_t ws = b / 32, bs = b % 32, i = 0;
   if (bs) {
     uint32_t hi, lo = a->wrd[ws];
     for (i = 0; i < a->siz - ws - 1; i++) {
@@ -216,9 +231,9 @@ bint *brshift(bint *ret, const bint *a, const uint32_t b) {
 
 // ----- Bit functions -----
 int16_t bbitlen(const bint *a) {
-  int16_t last = a->siz - 1, ret = 0;
+  int8_t last = a->siz - 1, ret = 0;
   if (last < 0) return 0;
-  for (int i = 32 - 1; i >= 0; i--) {
+  for (int8_t i = 32 - 1; i >= 0; i--) {
     if ((a->wrd[last] >> i) & 1) {
       ret = i + 1;
       break;
@@ -228,7 +243,7 @@ int16_t bbitlen(const bint *a) {
 }
 
 bint *bsetbit(bint *a, const uint32_t i) {
-  int16_t wi = i / 32, n = wi + 1;
+  int8_t wi = i / 32, n = wi + 1;
   breserve(a, n);
   if (a->siz < n) memset(a->wrd + a->siz, 0, (n - a->siz) * sizeof(uint32_t));
   a->siz = a->siz > n ? a->siz : n;
@@ -271,6 +286,7 @@ static inline int16_t uint32_mul_add(uint32_t *ret, const uint32_t *a, const uin
   return uint32_tru(ret, an + bn);
 }
 
+// TODO: this must be optimizable
 // https://en.wikipedia.org/wiki/Karatsuba_algorithm
 static inline int16_t uint32_mul_karatsuba(uint32_t *ret, const uint32_t *a, const uint32_t *b, int16_t an, int16_t bn, uint32_t *tmp) {
   if (an < BLEN && bn < BLEN) return uint32_mul_add(ret, a, b, an, bn);
@@ -293,8 +309,8 @@ static inline int16_t uint32_mul_karatsuba(uint32_t *ret, const uint32_t *a, con
 }
 
 bint *bmul(bint *ret, const bint *a, const bint *b) {
-  int16_t an = a->siz, bn = b->siz, n = an+bn;
-  memset(ret->wrd, 0, BLEN * sizeof(uint32_t));
+  int8_t an = a->siz, bn = b->siz, n = an+bn;
+  memset(ret->wrd, 0, BZ);
   if (ret->wrd != a->wrd && ret->wrd != b->wrd && an < BLEN && bn < BLEN) {
     breserve(ret, n);
     ret->siz = uint32_mul_add(ret->wrd, a->wrd, b->wrd, an, bn);
@@ -327,10 +343,10 @@ static inline bint *bdivmod(bint *ret, bint *rem, const bint *a, const bint *d) 
   if (uint32_abs(rem->wrd, d->wrd, rem->siz, d->siz) >= 0) {
     bint den = bcreate();
     BCPY(den, *(bint*)d);
-    int32_t sh = bbitlen(rem) - bbitlen(&den);
+    int16_t sh = bbitlen(rem) - bbitlen(&den);
     blshift(&den, &den, sh);
     den.neg = 0;
-    for (int32_t s = sh; s >= 0; s--) {
+    for (int16_t s = sh; s >= 0; s--) {
       if (uint32_abs(rem->wrd, den.wrd, rem->siz, den.siz) >= 0) {
         bsub(rem, rem, &den);
         bsetbit(ret, s);
@@ -344,7 +360,7 @@ static inline bint *bdivmod(bint *ret, bint *rem, const bint *a, const bint *d) 
 }
 
 bint *bdiv(bint *ret, bint *tmp, const bint *a, const bint *d) {
-  memset(ret->wrd, 0, BLEN * sizeof(uint32_t));
+  memset(ret->wrd, 0, BZ);
   bdivmod(ret, tmp, a, d);
   return tmp;
 }

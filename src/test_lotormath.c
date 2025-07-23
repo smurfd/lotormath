@@ -92,11 +92,9 @@ void tester_bint_2ways_sanity(void) {
 void tester_speed(void) {
   clock_t start = clock();
   for (int i = 0; i < 1000000; i++) {
-  bint a = bcreate(), b = bcreate(), c = bcreate(), t = bcreate();
-  str2bint(&a, "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f");
-  str2bint(&b, "0x0000000000000000000000000000000000000000000000000000003333333333");
-  //for (int i = 0; i < 1000000; i++) {
-    //badd(&c, &a, &b);
+    bint a = bcreate(), b = bcreate(), c = bcreate(), t = bcreate();
+    str2bint(&a, "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f");
+    str2bint(&b, "0x0000000000000000000000000000000000000000000000000000003333333333");
     bdiv(&c, &t, &a, &b);
   }
   printf("bint speed: Time %us %ums\n", (uint32_t)((clock() - start) * 1000 / CLOCKS_PER_SEC) / 1000, (uint32_t)((clock() - start) * 1000 / CLOCKS_PER_SEC) % 1000);
