@@ -221,9 +221,9 @@ bint *brshift(bint *ret, const bint *a, const uint32_t b) {
     ret->neg = ret->neg ^ a->neg;
     ret->siz = uint32_tru(ret->wrd, i);
   } else {
-    memcpy(ret->wrd, a->wrd + ws, (a->siz - ws) * sizeof(uint32_t));
+    memcpy(ret->wrd, a->wrd + ws, (a->siz-ws) * sizeof(uint32_t));
     ret->neg = ret->neg ^ a->neg;
-    ret->siz = uint32_tru(ret->wrd, i);
+    ret->siz = uint32_tru(ret->wrd, a->siz - ws);
   }
   return ret;
 }
