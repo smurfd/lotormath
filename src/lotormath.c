@@ -110,28 +110,22 @@ bint *wrd2bint(bint *x, const uint32_t w) {
   return x;
 }
 
-
+// Add and get Carry & Sub and get Carry
+#define AC(c, r, a) {r = (c + a); c = (r < a);}
+#define SC(c, r, a) {r = (a - c); c = (r > a);}
+#define ACC(c, r, a, b, r2) {AC(c, r, a); uint32_t rt = (r + b); c+= (rt < b); r2 = rt;}
+#define SCC(c, r, a, b, r2) {SC(c, r, a); uint32_t rt = (r - b); c+= (rt > r); r2 = rt;}
 // ----- Math Add & Sub functions -----
 static inline int16_t uint32_add(uint32_t *ret, const uint32_t *a, const uint32_t *b, int16_t an, int16_t bn) {
-  uint32_t carry = 0, n = an < bn ? an : bn, sum, sum2;
+  uint32_t carry = 0, n = an < bn ? an : bn, sum;
   for (uint8_t i = 0; i < n; i++) {
-    sum = (carry + a[i]); // add and get carry(*r, a, b) : a += b; *r = a; return a < b
-    carry = (sum < a[i]);
-    sum2 = (sum + b[i]);
-    carry += (sum2 < b[i]);
-    ret[i] = sum2;
+    ACC(carry, sum, a[i], b[i], ret[i]);
   }
-  if (n < an) {
-    for (uint8_t i = n; i < an; i++) {
-      ret[i] = (a[i] + carry); // add and get carry
-      carry = (ret[i] < carry);
-    }
+  for (uint8_t i = n; i < an; i++) {
+    AC(carry, ret[i], a[i]);
   }
-  if (an < bn) {
-    for (uint8_t i = an; i < bn; i++) {
-      ret[i] = (b[i] + carry); // add and get carry
-      carry = (ret[i] < carry);
-    }
+  for (uint8_t i = an; i < bn; i++) {
+    AC(carry, ret[i], b[i]);
   }
   uint8_t co = bn > an ? bn : an; // biggest of bn and an
   if (carry) ret[co++] = carry;
@@ -139,17 +133,12 @@ static inline int16_t uint32_add(uint32_t *ret, const uint32_t *a, const uint32_
 }
 
 static inline int16_t uint32_sub(uint32_t *ret, const uint32_t *a, const uint32_t *b, int16_t an, int16_t bn) {
-  uint32_t carry = 0, dif = 0, dif2;
+  uint32_t carry = 0, dif = 0;
   for (uint8_t i = 0; i < bn; i++) {
-    dif = a[i] - carry; // sub and get carry(*r, a, b) : b = a - b; *r = b; return b > a
-    carry = dif > a[i];
-    dif2 = dif - b[i]; // sub and get carry
-    carry += (dif2 > dif);
-    ret[i] = dif2;
+    SCC(carry, dif, a[i], b[i], ret[i]);
   }
   for (uint8_t i = bn; i < an; i++) {
-    ret[i] = a[i] - carry; // sub and get carry
-    carry = ret[i] > a[i];
+    SC(carry, ret[i], a[i]);
   }
   return uint32_tru(ret, an > bn ? an : bn); // biggest of an and bn
 }
@@ -264,24 +253,41 @@ static inline uint32_t uint32_mul_hi(const uint32_t a, const uint32_t b) {
   return uint32_hi(r4) + uint32_hi(r1) + uint32_hi(r2) + r3;
 }
 
+#define GETCAR(sw, dw, c, r, a, f) {sw = a; dw = sw * f; dw += c; c = (dw < c); c+=uint32_mul_hi(sw, f); c +=((r+=dw) < dw);}
 static inline int16_t uint32_mul_add(uint32_t *ret, const uint32_t *a, const uint32_t *b, int16_t an, int16_t bn) {
   if (an == 0 || bn == 0) return 0;
-  for (int8_t j = 0; j < bn; j++) {
-    uint32_t carry = 0, n = an, f = b[j], r[BLEN] = {0};
-    memcpy(r, ret + j, BLEN * sizeof(uint32_t));
-    for (int8_t i = 0; i < n; i++) {
-      uint32_t src_word = a[i], dst_word = uint32_mul_lo(src_word, f);
-      dst_word = dst_word + carry; // add and get carry
-      carry = (dst_word < carry);
-      carry += uint32_mul_hi(src_word, f);
-      r[i] = r[i] + dst_word; // add and get carry
-      carry += (r[i] < dst_word);
+  for (int8_t id = an % 16, j = 0; j < bn; j++) {
+    uint32_t carry = 0, n = an, f = b[j], r[BLEN] = {0}, src_word = 0, dst_word = 0;
+    memcpy(r, ret + j, (an + bn) * sizeof(uint32_t));
+    if (n >= 16) {
+      for (int8_t i = 0; i < n - id; i+=16) {
+        GETCAR(src_word, dst_word, carry, r[i+0], a[i+0], f);
+        GETCAR(src_word, dst_word, carry, r[i+1], a[i+1], f);
+        GETCAR(src_word, dst_word, carry, r[i+2], a[i+2], f);
+        GETCAR(src_word, dst_word, carry, r[i+3], a[i+3], f);
+        GETCAR(src_word, dst_word, carry, r[i+4], a[i+4], f);
+        GETCAR(src_word, dst_word, carry, r[i+5], a[i+5], f);
+        GETCAR(src_word, dst_word, carry, r[i+6], a[i+6], f);
+        GETCAR(src_word, dst_word, carry, r[i+7], a[i+7], f);
+        GETCAR(src_word, dst_word, carry, r[i+8], a[i+8], f);
+        GETCAR(src_word, dst_word, carry, r[i+9], a[i+9], f);
+        GETCAR(src_word, dst_word, carry, r[i+10], a[i+10], f);
+        GETCAR(src_word, dst_word, carry, r[i+11], a[i+11], f);
+        GETCAR(src_word, dst_word, carry, r[i+12], a[i+12], f);
+        GETCAR(src_word, dst_word, carry, r[i+13], a[i+13], f);
+        GETCAR(src_word, dst_word, carry, r[i+14], a[i+14], f);
+        GETCAR(src_word, dst_word, carry, r[i+15], a[i+15], f);
+      }
+      for (int8_t i = n - id; i < n; i++) {
+        GETCAR(src_word, dst_word, carry, r[i+0], a[i+0], f);
+      }
+    } else {
+      for (int8_t i = 0; i < n; i++) {
+        GETCAR(src_word, dst_word, carry, r[i+0], a[i+0], f);
+      }
     }
-    for (int8_t i = n; carry; i++){
-      r[i] = r[i] + carry; // add and get carry
-      carry = r[i] < carry;
-    }
-    memcpy(ret + j, r, BLEN * sizeof(uint32_t));
+    while((carry = (r[n++] += carry) < carry)) {}
+    memcpy(ret + j, r, (an + bn) * sizeof(uint32_t));
   }
   return uint32_tru(ret, an + bn);
 }
