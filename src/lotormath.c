@@ -242,10 +242,6 @@ bint *bsetbit(bint *a, const uint32_t i) {
 
 
 // ----- Math Mul functions -----
-static inline uint32_t uint32_mul_lo(const uint32_t a, const uint32_t b) {
-  return a * b;
-}
-
 static inline uint32_t uint32_mul_hi(const uint32_t a, const uint32_t b) {
   uint32_t la = uint32_lo(a), lb = uint32_lo(b), ha = uint32_hi(a), hb = uint32_hi(b);
   uint32_t r0 = la * lb, r1 = la * hb, r2 = ha * lb, r3 = ha * hb;
