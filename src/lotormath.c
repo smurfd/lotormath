@@ -33,23 +33,11 @@ static inline int16_t uint32_abs(const uint32_t *a, const uint32_t *b, int16_t a
     if (a[i] < b[i]) return -1;
     if (a[i] > b[i]) return +1;
   }
-  return 0;
+  return 0; // Equal
 }
 
 int16_t cmp(const bint *a, const bint *b) {
-  if (a->siz != 0 && a->siz != b->siz) return 1;
-  int8_t len = a->siz > b->siz ? a->siz : b->siz;
-  if (len == 0 || len == 1) {
-    if (a->wrd[0] > b->wrd[0]) return 1;
-    if (a->wrd[0] < b->wrd[0]) return -1;
-    if (a->wrd[0] == b->wrd[0]) return 0;
-  }
-  if (a->siz <= 0) return -1;
-  for (int8_t i = len - 1; i >= 0; i--) {
-    if (a->wrd[i] > b->wrd[i]) return 1;
-    if (a->wrd[i] < b->wrd[i]) return -1;
-  }
-  return 0; // Equal
+  return uint32_abs(a->wrd, b->wrd, a->siz, b->siz);
 }
 
 bint *breserve(bint *a, int cap) {
