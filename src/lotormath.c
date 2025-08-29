@@ -206,6 +206,19 @@ bint *brshift(bint *ret, const bint *a, const uint32_t b) {
 }
 
 
+bint *brshift1(bint *ret, const bint *a) {
+  int8_t i = 0;
+  uint32_t hi, lo = a->wrd[0];
+  for (i = 0; i < a->siz - 1; i++) {
+    hi = a->wrd[i + 1];
+    ret->wrd[i] = (hi << (32 - 1)) | (lo >> 1);
+    lo = hi;
+  }
+  ret->wrd[i++] = lo >> 1;
+  ret->neg = ret->neg ^ a->neg;
+  ret->siz = uint32_tru(ret->wrd, i);
+  return ret;
+}
 // ----- Bit functions -----
 int16_t bbitlen(const bint *a) {
   int8_t last = a->siz - 1, ret = 0;
@@ -240,37 +253,23 @@ static inline uint32_t uint32_mul_hi(const uint32_t a, const uint32_t b) {
 #define GETCAR(sw, dw, c, r, a, f) {sw = a; dw = sw * f; dw += c; c = (dw < c); c+=uint32_mul_hi(sw, f); c +=((r+=dw) < dw);}
 static inline int16_t uint32_mul_add(uint32_t *ret, const uint32_t *a, const uint32_t *b, int16_t an, int16_t bn) {
   if (an == 0 || bn == 0) return 0;
-  for (int8_t id = an % 16, j = 0; j < bn; j++) {
+  for (int8_t id = an % 8, j = 0; j < bn; j++) {
     uint32_t carry = 0, n = an, f = b[j], r[BLEN] = {0}, src_word = 0, dst_word = 0;
     memcpy(r, ret + j, (an + bn) * sizeof(uint32_t));
-    if (n >= 16) {
-      for (int8_t i = 0; i < n - id; i+=16) {
-        GETCAR(src_word, dst_word, carry, r[i+0], a[i+0], f);
-        GETCAR(src_word, dst_word, carry, r[i+1], a[i+1], f);
-        GETCAR(src_word, dst_word, carry, r[i+2], a[i+2], f);
-        GETCAR(src_word, dst_word, carry, r[i+3], a[i+3], f);
-        GETCAR(src_word, dst_word, carry, r[i+4], a[i+4], f);
-        GETCAR(src_word, dst_word, carry, r[i+5], a[i+5], f);
-        GETCAR(src_word, dst_word, carry, r[i+6], a[i+6], f);
-        GETCAR(src_word, dst_word, carry, r[i+7], a[i+7], f);
-        GETCAR(src_word, dst_word, carry, r[i+8], a[i+8], f);
-        GETCAR(src_word, dst_word, carry, r[i+9], a[i+9], f);
-        GETCAR(src_word, dst_word, carry, r[i+10], a[i+10], f);
-        GETCAR(src_word, dst_word, carry, r[i+11], a[i+11], f);
-        GETCAR(src_word, dst_word, carry, r[i+12], a[i+12], f);
-        GETCAR(src_word, dst_word, carry, r[i+13], a[i+13], f);
-        GETCAR(src_word, dst_word, carry, r[i+14], a[i+14], f);
-        GETCAR(src_word, dst_word, carry, r[i+15], a[i+15], f);
-      }
-      for (int8_t i = n - id; i < n; i++) {
-        GETCAR(src_word, dst_word, carry, r[i+0], a[i+0], f);
-      }
-    } else {
-      for (int8_t i = 0; i < n; i++) {
-        GETCAR(src_word, dst_word, carry, r[i+0], a[i+0], f);
-      }
+    for (int8_t i = 0; i < n - id; i+=8) {
+      GETCAR(src_word, dst_word, carry, r[i+0], a[i+0], f);
+      GETCAR(src_word, dst_word, carry, r[i+1], a[i+1], f);
+      GETCAR(src_word, dst_word, carry, r[i+2], a[i+2], f);
+      GETCAR(src_word, dst_word, carry, r[i+3], a[i+3], f);
+      GETCAR(src_word, dst_word, carry, r[i+4], a[i+4], f);
+      GETCAR(src_word, dst_word, carry, r[i+5], a[i+5], f);
+      GETCAR(src_word, dst_word, carry, r[i+6], a[i+6], f);
+      GETCAR(src_word, dst_word, carry, r[i+7], a[i+7], f);
     }
-    while((carry = (r[n++] += carry) < carry)) {}
+    for (int8_t i = n - id; i < n; i++) {
+      GETCAR(src_word, dst_word, carry, r[i+0], a[i+0], f);
+    }
+    while((carry = (r[n++] += carry) < carry));
     memcpy(ret + j, r, (an + bn) * sizeof(uint32_t));
   }
   return uint32_tru(ret, an + bn);
@@ -279,7 +278,7 @@ static inline int16_t uint32_mul_add(uint32_t *ret, const uint32_t *a, const uin
 // TODO: this must be optimizable
 // https://en.wikipedia.org/wiki/Karatsuba_algorithm
 static inline int16_t uint32_mul_karatsuba(uint32_t *ret, const uint32_t *a, const uint32_t *b, int16_t an, int16_t bn, uint32_t *tmp) {
-  if (an < BLEN && bn < BLEN) return uint32_mul_add(ret, a, b, an, bn);
+  if (an <= 16  && bn <= 16) return uint32_mul_add(ret, a, b, an, bn);
   int16_t m = an > bn? an : bn, m2 = m / 2, m3 = m2 + 2, nlo1hi1, nlo2hi2, nz0, nz1, nz2;
   uint32_t *lo1 = (uint32_t*)a, *lo2 = (uint32_t*)b, *hi1 = (uint32_t*)a + m2, *hi2 = (uint32_t*)b + m2, *lo1hi1, *lo2hi2, *z0, *z1, *z2;
   int16_t nlo1 = uint32_tru(lo1, m2 < an? m2 : an), nlo2 = uint32_tru(lo2, m2 < bn? m2 : bn);
@@ -296,6 +295,7 @@ static inline int16_t uint32_mul_karatsuba(uint32_t *ret, const uint32_t *a, con
   nz0 = uint32_add(ret + m2 * 1, ret + m2 * 1, z1, (nz0-m2) > 0 ? (nz0-m2) : 0, nz1);
   nz0 = uint32_add(ret + m2 * 2, ret + m2 * 2, z2, (nz0-m2) > 0 ? (nz0-m2) : 0, nz2);
   return uint32_tru(ret, nz0 + m2 * 2);
+
 }
 
 bint *bmul(bint *ret, const bint *a, const bint *b) {
@@ -341,7 +341,7 @@ static inline bint *bdivmod(bint *ret, bint *rem, const bint *a, const bint *d) 
         bsub(rem, rem, &den);
         bsetbit(ret, s);
       }
-      brshift(&den, &den, 1);
+      brshift1(&den, &den);
     }
   }
   rem->neg = a->neg;

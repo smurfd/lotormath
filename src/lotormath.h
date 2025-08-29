@@ -13,6 +13,7 @@ typedef struct bint {
 bint bcreate(void);
 bint *bsetbit(bint *a, const uint32_t i);
 bint *blshift(bint *ret, const bint *a, const uint32_t b);
+bint *brshift1(bint *ret, const bint *a);
 bint *brshift(bint *ret, const bint *a, const uint32_t b);
 bint *badd(bint *ret, const bint *a, const bint *b);
 bint *bsub(bint *ret, const bint *a, const bint *b);
