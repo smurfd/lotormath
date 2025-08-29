@@ -253,10 +253,10 @@ static inline uint32_t uint32_mul_hi(const uint32_t a, const uint32_t b) {
 #define GETCAR(sw, dw, c, r, a, f) {sw = a; dw = sw * f; dw += c; c = (dw < c); c+=uint32_mul_hi(sw, f); c +=((r+=dw) < dw);}
 static inline int16_t uint32_mul_add(uint32_t *ret, const uint32_t *a, const uint32_t *b, int16_t an, int16_t bn) {
   if (an == 0 || bn == 0) return 0;
-  for (int8_t id = an % 8, j = 0; j < bn; j++) {
+  for (int8_t id = an % 16, j = 0; j < bn; j++) {
     uint32_t carry = 0, n = an, f = b[j], r[BLEN] = {0}, src_word = 0, dst_word = 0;
     memcpy(r, ret + j, (an + bn) * sizeof(uint32_t));
-    for (int8_t i = 0; i < n - id; i+=8) {
+    for (int8_t i = 0; i < n - id; i+=16) {
       GETCAR(src_word, dst_word, carry, r[i+0], a[i+0], f);
       GETCAR(src_word, dst_word, carry, r[i+1], a[i+1], f);
       GETCAR(src_word, dst_word, carry, r[i+2], a[i+2], f);
@@ -265,6 +265,14 @@ static inline int16_t uint32_mul_add(uint32_t *ret, const uint32_t *a, const uin
       GETCAR(src_word, dst_word, carry, r[i+5], a[i+5], f);
       GETCAR(src_word, dst_word, carry, r[i+6], a[i+6], f);
       GETCAR(src_word, dst_word, carry, r[i+7], a[i+7], f);
+      GETCAR(src_word, dst_word, carry, r[i+8], a[i+8], f);
+      GETCAR(src_word, dst_word, carry, r[i+9], a[i+9], f);
+      GETCAR(src_word, dst_word, carry, r[i+10], a[i+10], f);
+      GETCAR(src_word, dst_word, carry, r[i+11], a[i+11], f);
+      GETCAR(src_word, dst_word, carry, r[i+12], a[i+12], f);
+      GETCAR(src_word, dst_word, carry, r[i+13], a[i+13], f);
+      GETCAR(src_word, dst_word, carry, r[i+14], a[i+14], f);
+      GETCAR(src_word, dst_word, carry, r[i+15], a[i+15], f);
     }
     for (int8_t i = n - id; i < n; i++) {
       GETCAR(src_word, dst_word, carry, r[i+0], a[i+0], f);
