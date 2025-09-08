@@ -14,13 +14,11 @@
 
 ### Build
 ```
+git clone https://github.com/smurfd/lotormath
 make -Csrc
 ```
 
 ### Usage
-```
-git clone https://github.com/smurfd/lotormath
-```
 test_lotormath.c
 ```c
 #include <string.h>
