@@ -12,10 +12,13 @@
 ```
 `https://en.wikipedia.org/wiki/Raccoon`
 
+
+Bigint C implementation. No dependencies
+
 ### Build
 ```
-git clone https://github.com/smurfd/lotormath
-make -Csrc
+git clone https://github.com/smurfd/lotormath && cd lotormath
+make -Csrc # fetches submodules if they dont exist
 ```
 
 ### Usage
