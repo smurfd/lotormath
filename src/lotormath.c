@@ -256,7 +256,7 @@ static inline int16_t uint32_mul_add(uint32_t *ret, const uint32_t *a, const uin
   for (int8_t id = an % 16, j = 0; j < bn; j++) {
     uint32_t carry = 0, n = an, f = b[j], r[BLEN] = {0}, src_word = 0, dst_word = 0;
     memcpy(r, ret + j, (an + bn) * sizeof(uint32_t));
-    for (int8_t i = 0; i < n - id; i+=16) {
+    for (uint32_t i = 0; i < n - id; i+=16) {
       GETCAR(src_word, dst_word, carry, r[i+0], a[i+0], f);
       GETCAR(src_word, dst_word, carry, r[i+1], a[i+1], f);
       GETCAR(src_word, dst_word, carry, r[i+2], a[i+2], f);
@@ -274,7 +274,7 @@ static inline int16_t uint32_mul_add(uint32_t *ret, const uint32_t *a, const uin
       GETCAR(src_word, dst_word, carry, r[i+14], a[i+14], f);
       GETCAR(src_word, dst_word, carry, r[i+15], a[i+15], f);
     }
-    for (int8_t i = n - id; i < n; i++) {
+    for (uint32_t i = n - id; i < n; i++) {
       GETCAR(src_word, dst_word, carry, r[i+0], a[i+0], f);
     }
     while((carry = (r[n++] += carry) < carry));
